@@ -2,7 +2,8 @@ import os
 import random
 import logging
 import threading
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+import time
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
 from telegram.ext import (
@@ -21,12 +22,22 @@ logging.basicConfig(
 # Render Health Server
 # -----------------------------
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'OK')
+    
+    def log_message(self, format, *args):
+        # Suppress HTTP request logs to keep console clean
+        pass
+
 def health_server():
     port = int(os.getenv("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
-    print(f"Health server running on {port}")
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    logging.info(f"Health server running on port {port}")
     server.serve_forever()
-
 
 # -----------------------------
 # Reply Database
@@ -43,21 +54,18 @@ RESPONSES = {
         "Good to see you.",
         "Talk to me.",
     ],
-
     "morning": [
         "Good morning ☀️",
         "Rise and shine.",
         "Hope today treats you well.",
         "Morning! What's the plan?",
     ],
-
     "night": [
         "Good night 🌙",
         "Sleep well.",
         "Take care.",
         "Rest up.",
     ],
-
     "thanks": [
         "You're welcome 😊",
         "Happy to help.",
@@ -65,90 +73,77 @@ RESPONSES = {
         "My pleasure.",
         "Glad I could help.",
     ],
-
     "howareyou": [
         "Doing great 😄",
         "Running perfectly.",
         "Feeling awesome.",
         "Always ready.",
     ],
-
     "work": [
         "Tell me more about the project.",
         "Sounds interesting.",
         "Let's build something awesome.",
         "What's the goal?",
     ],
-
     "price": [
         "Depends on the project.",
         "Let's discuss the requirements first.",
         "Every project is different.",
         "Tell me the scope.",
     ],
-
     "help": [
         "Describe the issue.",
         "Paste the error.",
         "Let's solve it together.",
         "I'm listening.",
     ],
-
     "laugh": [
         "😂",
         "Haha.",
         "🤣 Good one.",
         "Nice 😂",
     ],
-
     "compliment": [
         "Thanks 😄",
         "Appreciate it.",
         "Means a lot.",
         "You're awesome too.",
     ],
-
     "bye": [
         "See you 👋",
         "Take care.",
         "Catch you later.",
         "Have a great day.",
     ],
-
     "yes": [
         "Awesome.",
         "Great.",
         "Perfect.",
         "Sounds good.",
     ],
-
     "no": [
         "No problem.",
         "Fair enough.",
         "Understood.",
         "Alright.",
     ],
-
     "coding": [
         "Send me the code.",
         "Paste the error message.",
         "Let's debug it.",
         "Show me what's happening.",
     ],
-
     "bot": [
         "Yep 🤖",
         "I'm a Telegram bot.",
         "Built to help.",
         "Always online.",
     ],
-
     "busy": [
         "I'll reply as soon as I can.",
         "Currently busy but your message is noted.",
         "Working on something at the moment.",
     ],
-
     "fallback": [
         "Got it 👍",
         "Thanks for your message.",
@@ -160,23 +155,19 @@ RESPONSES = {
     ]
 }
 
-
 KEYWORDS = {
     "greeting": [
         "hi", "hello", "hey", "yo", "sup",
         "hola", "namaste"
     ],
-
     "morning": [
         "good morning",
         "gm"
     ],
-
     "night": [
         "good night",
         "gn"
     ],
-
     "thanks": [
         "thanks",
         "thank",
@@ -184,14 +175,12 @@ KEYWORDS = {
         "ty",
         "tysm"
     ],
-
     "howareyou": [
         "how are you",
         "how r u",
         "how's it going",
         "hows it going"
     ],
-
     "work": [
         "project",
         "website",
@@ -201,7 +190,6 @@ KEYWORDS = {
         "hire",
         "portfolio"
     ],
-
     "price": [
         "price",
         "cost",
@@ -211,7 +199,6 @@ KEYWORDS = {
         "rate",
         "how much"
     ],
-
     "help": [
         "help",
         "issue",
@@ -221,7 +208,6 @@ KEYWORDS = {
         "error",
         "fix"
     ],
-
     "laugh": [
         "lol",
         "haha",
@@ -229,7 +215,6 @@ KEYWORDS = {
         "rofl",
         "xd"
     ],
-
     "compliment": [
         "awesome",
         "great",
@@ -239,26 +224,22 @@ KEYWORDS = {
         "smart",
         "genius"
     ],
-
     "bye": [
         "bye",
         "goodbye",
         "see you",
         "cya"
     ],
-
     "yes": [
         "yes",
         "yeah",
         "yup"
     ],
-
     "no": [
         "no",
         "nah",
         "nope"
     ],
-
     "coding": [
         "python",
         "java",
@@ -269,13 +250,11 @@ KEYWORDS = {
         "code",
         "coding"
     ],
-
     "bot": [
         "are you a bot",
         "who made you",
         "who are you"
     ],
-
     "busy": [
         "busy",
         "available",
@@ -283,7 +262,6 @@ KEYWORDS = {
         "active"
     ]
 }
-
 
 def get_reply(text):
     text = text.lower()
@@ -295,13 +273,11 @@ def get_reply(text):
 
     return random.choice(RESPONSES["fallback"])
 
-
 # -----------------------------
 # Telegram Handler
 # -----------------------------
 
 async def business_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     if not update.business_message:
         return
 
@@ -318,22 +294,21 @@ async def business_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         business_connection_id=msg.business_connection_id,
     )
 
-
 # -----------------------------
 # Main
 # -----------------------------
 
 def main():
-
-    threading.Thread(
-        target=health_server,
-        daemon=True
-    ).start()
+    # Start health server in a separate thread
+    threading.Thread(target=health_server, daemon=True).start()
+    
+    # Give the health server a moment to start
+    time.sleep(1)
 
     TOKEN = os.getenv("BOT_TOKEN")
 
     if not TOKEN:
-        raise RuntimeError("BOT_TOKEN is not set.")
+        raise RuntimeError("BOT_TOKEN environment variable is not set.")
 
     app = Application.builder().token(TOKEN).build()
 
@@ -344,12 +319,11 @@ def main():
         )
     )
 
-    print("Bot is running...")
+    logging.info("Bot is running...")
 
     app.run_polling(
         allowed_updates=Update.ALL_TYPES
     )
-
 
 if __name__ == "__main__":
     main()
