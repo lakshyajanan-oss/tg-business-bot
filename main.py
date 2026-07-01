@@ -1,10 +1,20 @@
 import os
 import logging
+import threading
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 logging.basicConfig(level=logging.INFO)
 
+# --- Tiny Web Server to satisfy Render ---
+def run_health_check_server():
+    port = int(os.getenv("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    print(f"Fake web server listening on port {port}...")
+    server.serve_forever()
+
+# --- Your Chad Logic ---
 async def reply_like_a_boss(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_message:
         msg = update.business_message
@@ -34,6 +44,45 @@ async def reply_like_a_boss(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 4. Troubleshooting & Support
         elif any(word in text for word in ["help", "error", "issue", "bug", "broken", "not working", "stuck"]):
+            reply = "We don't panic. Clear your mind, explain the issue, and we fix it. 🛠️"
+
+        # 5. Casual Chit-Chat & Feedback
+        elif any(word in text for word in ["thank", "thx", "tysm", "cool", "nice", "awesome", "great"]):
+            reply = "Just standard protocol. Appreciate the energy. 🤝"
+        elif any(word in text for word in ["lol", "haha", "xd", "lmao"]):
+            reply = "Life's a game, you gotta laugh at it. ⚡"
+        elif any(word in text for word in ["ok", "okay", "kk", "got it", "fine", "sure"]):
+            reply = "Understood. Let's keep it moving. 🏎️💨"
+        elif any(word in text for word in ["yes", "yeah", "yup"]):
+            reply = "Exactly. Correct mindset. 👑"
+        elif any(word in text for word in ["no", "nah", "nope"]):
+            reply = "Fair enough. Respect the boundaries. 🛑"
+
+        # 6. Ultimate Catch-All (For everything else)
+        else:
+            reply = "Got your text. Busy building. I'll get back to you when I'm free. Keep grinding. 🏎️💨"
+
+        # Send the boss response
+        await context.bot.send_message(
+            chat_id=msg.chat.id,
+            text=reply,
+            business_connection_id=msg.business_connection_id
+        )
+
+def main():
+    # 1. Start the fake web server in a background thread so Render is happy
+    threading.Thread(target=run_health_check_server, daemon=True).start()
+
+    # 2. Your Telegram Bot Token added directly
+    TOKEN = "8600838156:AAFhjcEiT-_IzQ2VvvySF73ba5sVrrsUOmQ"
+    
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, reply_like_a_boss))
+    print("Mega Chad Bot is ready...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+if __name__ == '__main__':
+    main()
             reply = "We don't panic. Clear your mind, explain the issue, and we fix it. 🛠️"
 
         # 5. Casual Chit-Chat & Feedback
